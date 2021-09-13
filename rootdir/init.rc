@@ -16,11 +16,6 @@ on early-init
     # Disable sysrq from keyboard
     write /proc/sys/kernel/sysrq 0
 
-    # Android doesn't need kernel module autoloading, and it causes SELinux
-    # denials.  So disable it by setting modprobe to the empty string.  Note: to
-    # explicitly set a sysctl to an empty string, a trailing newline is needed.
-    write /proc/sys/kernel/modprobe \n
-
     # Set the security context of /adb_keys if present.
     restorecon /adb_keys
 
@@ -63,6 +58,8 @@ on early-init
 
     # Mount bootstrap linker configuration as current
     mount none /linkerconfig/bootstrap /linkerconfig bind rec
+
+    mount debugfs /sys/kernel/debug /sys/kernel/debug mode=755
 
     start ueventd
 
@@ -172,21 +169,21 @@ on init
     chmod 0770 /config/sdcardfs
     chown system package_info /config/sdcardfs
 
-    # Mount binderfs
-    mkdir /dev/binderfs
-    mount binder binder /dev/binderfs stats=global
-    chmod 0755 /dev/binderfs
+    # # Mount binderfs
+    # mkdir /dev/binderfs
+    # mount binder binder /dev/binderfs stats=global
+    # chmod 0755 /dev/binderfs
 
     # Mount fusectl
     mount fusectl none /sys/fs/fuse/connections
 
-    symlink /dev/binderfs/binder /dev/binder
-    symlink /dev/binderfs/hwbinder /dev/hwbinder
-    symlink /dev/binderfs/vndbinder /dev/vndbinder
+    # symlink /dev/binderfs/binder /dev/binder
+    # symlink /dev/binderfs/hwbinder /dev/hwbinder
+    # symlink /dev/binderfs/vndbinder /dev/vndbinder
 
-    chmod 0666 /dev/binderfs/hwbinder
-    chmod 0666 /dev/binderfs/binder
-    chmod 0666 /dev/binderfs/vndbinder
+    # chmod 0666 /dev/binderfs/hwbinder
+    # chmod 0666 /dev/binderfs/binder
+    # chmod 0666 /dev/binderfs/vndbinder
 
     mkdir /mnt/secure 0700 root root
     mkdir /mnt/secure/asec 0700 root root
@@ -1038,7 +1035,7 @@ service console /system/bin/sh
     class core
     console
     disabled
-    user shell
+#   user shell
     group shell log readproc
     seclabel u:r:shell:s0
     setenv HOSTNAME console

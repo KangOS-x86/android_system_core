@@ -59,6 +59,7 @@
 #include <selinux/android.h>
 #include <selinux/label.h>
 #include <selinux/selinux.h>
+#include <sys/system_properties.h>
 
 #include "debug_ramdisk.h"
 #include "epoll.h"
@@ -76,6 +77,7 @@ using namespace std::literals;
 
 using android::base::GetProperty;
 using android::base::ReadFileToString;
+using android::base::SetProperty;
 using android::base::Split;
 using android::base::StartsWith;
 using android::base::StringPrintf;
@@ -911,22 +913,7 @@ static void property_derive_build_fingerprint() {
         return;
     }
 
-    const std::string UNKNOWN = "unknown";
-    build_fingerprint = GetProperty("ro.product.brand", UNKNOWN);
-    build_fingerprint += '/';
-    build_fingerprint += GetProperty("ro.product.name", UNKNOWN);
-    build_fingerprint += '/';
-    build_fingerprint += GetProperty("ro.product.device", UNKNOWN);
-    build_fingerprint += ':';
-    build_fingerprint += GetProperty("ro.build.version.release", UNKNOWN);
-    build_fingerprint += '/';
-    build_fingerprint += GetProperty("ro.build.id", UNKNOWN);
-    build_fingerprint += '/';
-    build_fingerprint += GetProperty("ro.build.version.incremental", UNKNOWN);
-    build_fingerprint += ':';
-    build_fingerprint += GetProperty("ro.build.type", UNKNOWN);
-    build_fingerprint += '/';
-    build_fingerprint += GetProperty("ro.build.tags", UNKNOWN);
+    build_fingerprint = GetProperty("ro.vendor.build.fingerprint", "");
 
     LOG(INFO) << "Setting property 'ro.build.fingerprint' to '" << build_fingerprint << "'";
 
@@ -1081,10 +1068,22 @@ static void ExportKernelBootProps() {
         { "ro.boot.mode",       "ro.bootmode",   "unknown", },
         { "ro.boot.baseband",   "ro.baseband",   "unknown", },
         { "ro.boot.bootloader", "ro.bootloader", "unknown", },
-        { "ro.boot.hardware",   "ro.hardware",   "unknown", },
+        { "ro.boot.hardware",   "ro.hardware",   UNSET, },
         { "ro.boot.revision",   "ro.revision",   "0", },
             // clang-format on
     };
+    const char *hardware = prop_map[4].src_prop;
+    if (GetProperty(hardware, UNSET).empty()) {
+        char line[PROP_NAME_MAX + PROP_VALUE_MAX + 2], value[PROP_VALUE_MAX];
+        auto f = fopen("/system/build.prop", "r");
+        while (fgets(line, sizeof(line), f) == line) {
+            if (sscanf(line, "ro.product.system.name=%s", value) > 0) {
+                InitPropertySet(hardware, value);
+                break;
+            }
+        }
+        fclose(f);
+    }
     for (const auto& prop : prop_map) {
         std::string value = GetProperty(prop.src_prop, prop.default_value);
         if (value != UNSET) InitPropertySet(prop.dst_prop, value);
